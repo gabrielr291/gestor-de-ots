@@ -1,254 +1,136 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Gestión de OTs</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de OTs</title>
+
+  <!-- Capturador de errores globales de JS (Muestra alertas si algo falla internamente) -->
+  <script>
+    window.addEventListener('error', function(e) {
+      alert('⚠️ ERROR JS: ' + e.message + '\nEn: ' + e.filename + ':' + e.lineno);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      alert('⚠️ ERROR PROMESA: ' + (e.reason.message || e.reason));
+    });
+  </script>
+
+  <!-- Estilos CSS (Adapta la ruta según tus archivos si usas uno externo) -->
+  <link rel="stylesheet" href="style.css">
   <style>
-    :root {
-      --bg: #f8fafc; --card: #ffffff; --primary: #2563eb; --success: #16a34a;
-      --danger: #ef4444; --warning: #f59e0b; --text: #0f172a; --text-muted: #64748b; --border: #e2e8f0;
-    }
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 1rem; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 650px; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 1rem; }
-    .header-bar, .header-toggle { display: flex; justify-content: space-between; align-items: center; }
-    h1 { font-size: 1.3rem; margin: 0; } h2 { font-size: 1.1rem; margin: 0; }
-    .form-group { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
-    label { font-weight: 600; font-size: 0.85rem; }
-    input, textarea { padding: 0.65rem 0.8rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; font-family: inherit; width: 100%; outline: none; }
-    textarea { resize: vertical; min-height: 80px; }
-    .btn { padding: 0.65rem 1rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; text-align: center; width: 100%; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-success { background: var(--success); color: white; }
-    .btn-secondary { background: #e2e8f0; color: var(--text); }
-    .btn-logout { background: #e2e8f0; color: var(--text); font-size: 0.8rem; padding: 0.35rem 0.7rem; width: auto; }
-    .btn-danger { background: var(--danger); color: white; padding: 0.4rem 0.6rem; font-size: 0.8rem; width: auto; }
-    .btn-warning { background: var(--warning); color: white; padding: 0.4rem 0.6rem; font-size: 0.8rem; width: auto; }
-    .btn-toggle { background: #e2e8f0; color: var(--text); font-size: 0.8rem; padding: 0.35rem 0.7rem; width: auto; }
-    .export-zone { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-    .alert { padding: 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; display: none; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    .request-badge { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
-    .meter-container { margin-top: 0.3rem; display: none; }
-    .meter-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 0.2rem; }
-    .meter-fill { height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s; }
-    .meter-text { font-size: 0.75rem; font-weight: 600; }
-    .log-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
-    .log-item { background: #f1f5f9; border-left: 4px solid var(--primary); padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: 4px; margin-bottom: 0.5rem; }
-    .dynamic-field { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-    .object-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-    .object-item { background: #f8fafc; border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
-    .object-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    .object-title { font-weight: bold; color: var(--primary); }
-    .object-prop { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: pre-line; }
-    .object-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-    .user-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .user-table th, .user-table td { border: 1px solid var(--border); padding: 0.4rem; text-align: left; }
-    .password-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
-    .actions-cell { display: flex; gap: 0.3rem; }
-    .collapsible-body { margin-top: 1rem; }
+    /* Estilos básicos de respaldo para que la interfaz sea funcional */
+    body { font-family: sans-serif; margin: 20px; background-color: #f4f6f9; }
+    .card { background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto 20px auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    .btn { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%; }
+    .btn:hover { background: #0056b3; }
+    .btn-warning { background: #ffc107; color: #333; }
+    .btn-danger { background: #dc3545; color: white; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- LOGIN Y REGISTRO -->
-    <div id="viewLogin" class="card">
-      <h1 id="loginTitle" style="text-align: center; margin-bottom: 0.5rem;">Iniciar Sesión</h1>
-      <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Gestor de OTs</p>
-      <div id="loginAlert" class="alert"></div>
+
+  <!-- SECCIÓN DE LOGIN -->
+  <div id="loginCard" class="card">
+    <h2>Iniciar Sesión</h2>
+    <form id="loginForm">
       <div class="form-group">
-        <label>Usuario</label>
-        <input type="text" id="loginUser" placeholder="Ej: admin" />
+        <label for="loginUsername">Usuario:</label>
+        <input type="text" id="loginUsername" placeholder="Ingresa tu usuario" required>
       </div>
       <div class="form-group">
-        <label>Contraseña</label>
-        <input type="password" id="loginPass" placeholder="••••••••" id-meter="login" />
-        <div id="loginMeterBox" class="meter-container">
-          <div class="meter-bar"><div id="loginMeterBar" class="meter-fill"></div></div>
-          <span id="loginMeterText" class="meter-text"></span>
-        </div>
+        <label for="loginPassword">Contraseña:</label>
+        <input type="password" id="loginPassword" placeholder="Ingresa tu contraseña" required>
       </div>
-      <div id="confirmPassGroup" class="form-group" style="display: none;">
-        <label>Confirmar Contraseña</label>
-        <input type="password" id="loginPassConfirm" placeholder="••••••••" />
-        <div class="password-hint">Mínimo 8 caracteres: 1 mayúscula, 1 minúscula y 1 número.</div>
-      </div>
-      <button type="button" id="loginBtn" class="btn btn-primary" style="margin-top: 0.5rem;">Ingresar</button>
-      <div style="text-align: center; margin-top: 1rem;">
-        <span id="toggleRegister" style="color: var(--primary); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
-          ¿No tienes usuario? Crea uno nuevo
-        </span>
-      </div>
+      <button type="submit" id="btnLogin" class="btn">Ingresar</button>
+    </form>
+  </div>
+
+  <!-- PANEL DE ADMINISTRACIÓN (Se muestra solo si es Admin) -->
+  <div id="adminSection" class="card" style="display: none; max-width: 800px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>Panel de Administración</h2>
+      <button id="btnToggleAdmin" class="btn" style="width: auto;">🔼 Ocultar</button>
     </div>
 
-    <!-- VISTA PRINCIPAL -->
-    <div id="viewApp" style="display: none;">
-      <!-- SEGURIDAD DE USUARIO -->
-      <div class="card" style="background: #faf5ff; border-color: #d8b4fe;">
-        <div class="header-toggle">
-          <h2>🔑 Seguridad del Usuario</h2>
-          <button type="button" id="btnToggleSecurity" class="btn btn-toggle">🔽 Mostrar</button>
-        </div>
-        <div id="userSecurityBody" class="collapsible-body" style="display: none;">
-          <div style="font-size: 0.85rem; margin-bottom: 0.75rem;">
-            Cambiar contraseña para: <b id="profileUsername"></b>
-          </div>
-          <div class="form-group">
-            <input type="password" id="oldPass" placeholder="Contraseña Actual" />
-          </div>
-          <div class="form-group">
-            <input type="password" id="changePass" placeholder="Nueva Contraseña" />
-            <div id="changeMeterBox" class="meter-container">
-              <div class="meter-bar"><div id="changeMeterBar" class="meter-fill"></div></div>
-              <span id="changeMeterText" class="meter-text"></span>
-            </div>
-          </div>
-          <div class="form-group">
-            <input type="password" id="changePassConfirm" placeholder="Confirmar Nueva Contraseña" />
-          </div>
-          <button type="button" id="btnUpdatePass" class="btn btn-primary">Actualizar Mi Contraseña</button>
-        </div>
+    <div id="adminSectionBody">
+      <h3>Crear Nuevo Usuario</h3>
+      <div class="form-group">
+        <input type="text" id="newUsername" placeholder="Nombre de usuario">
       </div>
+      <div class="form-group">
+        <input type="password" id="newUserPass" placeholder="Contraseña">
+      </div>
+      <div class="form-group">
+        <input type="password" id="newUserPassConfirm" placeholder="Confirmar Contraseña">
+      </div>
+      <button id="btnAdminCreateUser" class="btn">Crear Usuario</button>
 
-      <!-- PANEL ADMIN -->
-      <div id="adminSection" class="card" style="display: none; border-color: var(--primary);">
-        <div class="header-toggle">
-          <h2>⚙️ Gestión de Usuarios y Auditoría</h2>
-          <button type="button" id="btnToggleAdmin" class="btn btn-toggle">🔽 Mostrar</button>
-        </div>
-        <div id="adminSectionBody" class="collapsible-body" style="display: none;">
-          <div id="requestsContainer"></div>
-          <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-              <h3 style="margin: 0; font-size: 0.9rem; color: var(--primary);">📋 Historial de Ediciones</h3>
-              <div style="display: flex; gap: 0.3rem;">
-                <button type="button" id="btnExportAuditJson" class="btn btn-secondary" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;">💾 Exportar JSON</button>
-                <button type="button" id="btnExportAuditCsv" class="btn btn-success" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;">📊 Exportar Excel</button>
-              </div>
-            </div>
-            <ul id="auditLogsList" class="log-list"></ul>
-          </div>
-          <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;">
-            <h3 style="margin-top:0; font-size:0.9rem;">Crear Nuevo Usuario</h3>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <input type="text" id="newUsername" placeholder="Nuevo usuario" />
-              <input type="password" id="newUserPass" placeholder="Contraseña segura" />
-              <div id="adminMeterBox" class="meter-container">
-                <div class="meter-bar"><div id="adminMeterBar" class="meter-fill"></div></div>
-                <span id="adminMeterText" class="meter-text"></span>
-              </div>
-              <input type="password" id="newUserPassConfirm" placeholder="Confirmar contraseña" />
-              <div class="password-hint">Mínimo 8 caracteres, con mayúscula, minúscula y número.</div>
-              <button type="button" id="btnAdminCreateUser" class="btn btn-primary">+ Crear Usuario</button>
-            </div>
-          </div>
-          <div style="overflow-x: auto;">
-            <table class="user-table">
-              <thead>
-                <tr>
-                  <th>Usuario</th><th>Estado</th><th>Editar</th><th>Borrar</th><th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="userTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <h3 style="margin-top: 20px;">Gestión de Permisos</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Estado</th>
+            <th>Editar</th>
+            <th>Eliminar</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody">
+          <!-- Se llena dinámicamente -->
+        </tbody>
+      </table>
 
-      <!-- FORMULARIO OT -->
-      <div class="card">
-        <div class="header-bar">
-          <h1 id="formTitle">Registrar OT</h1>
-          <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.4rem;">
-              Usuario: <b id="currentUserLabel"></b>
-            </span>
-            <button type="button" id="btnLogout" class="btn btn-logout">🔒 Salir</button>
-          </div>
-        </div>
-        <form id="otForm">
-          <div class="form-group">
-            <label>Número OT</label>
-            <input type="text" id="otNumber" placeholder="Ej: 100" />
-          </div>
-          <div class="form-group">
-            <label>Número de Bus</label>
-            <input type="text" id="busNumber" placeholder="Ej: 5001" />
-          </div>
-          <div class="form-group">
-            <label>Kilometraje</label>
-            <input type="text" id="kilometraje" placeholder="Ej: 150000" />
-          </div>
-          <div class="form-group">
-            <label>Detalle</label>
-            <textarea id="detalle" rows="3" placeholder="Ej: Mantenimiento de Puerta"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Campos Personalizados Extras</label>
-            <div id="dynamicContainer"></div>
-            <button type="button" id="btnAddExtra" class="btn btn-secondary" style="margin-top: 0.4rem;">+ Agregar campo extra</button>
-          </div>
-          <button type="submit" id="saveBtn" class="btn btn-primary" style="margin-top: 1rem;">Guardar OT</button>
-          <button type="button" id="cancelBtn" class="btn btn-secondary" style="margin-top: 0.5rem; display: none;">Cancelar Edición</button>
-        </form>
-      </div>
-
-      <!-- LISTA DE OT -->
-      <div class="card">
-        <h2>Registros Guardados</h2>
-        <div class="export-zone">
-          <button type="button" id="btnExportBackup" class="btn btn-primary" style="width: auto;">💾 Respaldar OTs (JSON)</button>
-          <label class="btn btn-secondary" style="cursor: pointer; text-align: center; width: auto; display: inline-block;">
-            📂 Cargar OTs
-            <input type="file" id="importFileInput" accept=".json" style="display: none;" />
-          </label>
-          <button type="button" id="btnExportExcel" class="btn btn-success" style="width: auto;">📊 Excel (CSV)</button>
-        </div>
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-          <input type="text" id="searchBus" placeholder="🔍 Buscar por número de bus..." style="flex: 1;" />
-          <button type="button" id="sortBtn" class="btn btn-secondary" style="width: auto; white-space: nowrap;">
-            ⬇️ Más recientes primero
-          </button>
-        </div>
-        <ul id="otList" class="object-list"></ul>
-      </div>
+      <h3 style="margin-top: 20px;">Historial de Auditoría</h3>
+      <button id="btnExportAuditJson" class="btn btn-warning" style="width: auto;">Exportar JSON</button>
+      <button id="btnExportAuditCsv" class="btn btn-warning" style="width: auto;">Exportar CSV</button>
+      <ul id="auditLogsList" style="margin-top: 10px; padding-left: 20px;"></ul>
     </div>
   </div>
 
-  <script type="module">
-    import { initAuthUI, checkStrength } from './auth.js';
-    import { initAdminUI } from './admin.js';
-    import { initOTsUI } from './ots.js';
+  <!-- SECCIÓN PRINCIPAL DE OTs -->
+  <div id="otsSection" style="display: none; max-width: 1000px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h1>Gestor de OTs</h1>
+      <button id="btnLogout" class="btn btn-danger" style="width: auto;">Cerrar Sesión</button>
+    </div>
 
-    document.addEventListener('DOMContentLoaded', () => {
-      initAuthUI();
-      initAdminUI();
-      initOTsUI();
-    });
+    <!-- Contenedor donde se cargan las OTs o módulos UI -->
+    <div id="otsContainer"></div>
+  </div>
+
+  <!-- SDKs de Firebase Compatibles -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <!-- Inicialización de Firebase -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCcljiWo9h5nqIgaGvktP6EIQ325Qgn0s8",
+      authDomain: "gestorots-58168.firebaseapp.com",
+      databaseURL: "https://gestorots-58168-default-rtdb.firebaseio.com",
+      projectId: "gestorots-58168",
+      storageBucket: "gestorots-58168.firebasestorage.app",
+      messagingSenderId: "382994854791",
+      appId: "1:382994854791:web:34d6d9fef8d597e49e5922",
+      measurementId: "G-CVNGPNTETE"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Asignar base de datos a window.db para que esté disponible globalmente
+    window.db = firebase.database();
   </script>
-  <!-- SDKs de Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCcljiWo9h5nqIgaGvktP6EIQ325Qgn0s8",
-    authDomain: "gestorots-58168.firebaseapp.com",
-    databaseURL: "https://gestorots-58168-default-rtdb.firebaseio.com",
-    projectId: "gestorots-58168",
-    storageBucket: "gestorots-58168.firebasestorage.app",
-    messagingSenderId: "382994854791",
-    appId: "1:382994854791:web:34d6d9fef8d597e49e5922",
-    measurementId: "G-CVNGPNTETE"
-  };
-
-  // Inicializar Firebase en tu web
-  firebase.initializeApp(firebaseConfig);
-  window.db = firebase.database();
-</script>
-<script type="module" src="./main.js"></script>
+  <!-- Módulo JS Principal -->
+  <script type="module" src="./main.js"></script>
 
 </body>
-  </html>
-  
+</html>
