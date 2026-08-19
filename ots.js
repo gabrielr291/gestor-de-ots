@@ -1,5 +1,167 @@
-export function getOTsForUser(currentUser, isAdmin) {
+import { getActiveUser, getUsers } from './auth.js';
+
+let editingId = null;
+let sortDesc = true;
+
+export function initOTsUI() {
+  const form = document.getElementById('otForm');
+  if (form) form.addEventListener('submit', saveOT);
+
+  const btnAddExtra = document.getElementById('btnAddExtra');
+  if (btnAddExtra) btnAddExtra.addEventListener('click', () => addExtraField());
+
+  const searchBus = document.getElementById('searchBus');
+  if (searchBus) searchBus.addEventListener('input', renderOTs);
+
+  const sortBtn = document.getElementById('sortBtn');
+  if (sortBtn) {
+    sortBtn.addEventListener('click', () => {
+      sortDesc = !sortDesc;
+      sortBtn.textContent = sortDesc ? '⬇️ Más recientes primero' : '⬆️ Más antiguas primero';
+      renderOTs();
+    });
+  }
+
+  const btnExportBackup = document.getElementById('btnExportBackup');
+  if (btnExportBackup) btnExportBackup.addEventListener('click', exportBackup);
+
+  const btnExportExcel = document.getElementById('btnExportExcel');
+  if (btnExportExcel) btnExportExcel.addEventListener('click', exportToExcel);
+
+  window.addEventListener('appLoaded', renderOTs);
+}
+
+function addExtraField(key = '', val = '') {
+  const div = document.createElement('div');
+  div.className = 'dynamic-field';
+  div.innerHTML = `
+    <input type="text" placeholder="Campo" class="extra-key" value="${key}" />
+    <input type="text" placeholder="Valor" class="extra-val" value="${val}" />
+    <button type="button" class="btn btn-danger btn-del-field">X</button>
+  `;
+  div.querySelector('.btn-del-field').onclick = () => div.remove();
+  document.getElementById('dynamicContainer').appendChild(div);
+}
+
+function saveOT(e) {
+  e.preventDefault();
+  const activeUser = getActiveUser();
+  if (!activeUser) return;
+
+  let ots = JSON.parse(localStorage.getItem('sys_ots')) || [];
+  const otVal = document.getElementById('otNumber').value.trim();
+  const busVal = document.getElementById('busNumber').value.trim();
+  const kmVal = document.getElementById('kilometraje').value.trim();
+  const detVal = document.getElementById('detalle').value.trim();
+
+  const extras = {};
+  document.querySelectorAll('.dynamic-field').forEach(f => {
+    const k = f.querySelector('.extra-key').value.trim();
+    const v = f.querySelector('.extra-val').value.trim();
+    if (k) extras[k] = v;
+  });
+
+  const now = new Date();
+
+  if (editingId) {
+    const idx = ots.findIndex(x => x.id === editingId);
+    if (idx !== -1) {
+      ots[idx] = { ...ots[idx], ot: otVal, bus: busVal, km: kmVal, detalle: detVal, extras };
+    }
+    editingId = null;
+  } else {
+    ots.unshift({
+      id: 'ID_' + Date.now(),
+      ot: otVal,
+      bus: busVal,
+      km: kmVal,
+      detalle: detVal,
+      extras,
+      fecha: now.toLocaleDateString('es-ES'),
+      timestamp: now.getTime(),
+      createdUser: activeUser.username
+    });
+  }
+
+  localStorage.setItem('sys_ots', JSON.stringify(ots));
+  document.getElementById('otForm').reset();
+  document.getElementById('dynamicContainer').innerHTML = '';
+  renderOTs();
+}
+
+export function renderOTs() {
+  const activeUser = getActiveUser();
+  if (!activeUser) return;
+
+  let ots = JSON.parse(localStorage.getItem('sys_ots')) || [];
+  let users = getUsers();
+  let me = users.find(u => u.username === activeUser.username) || activeUser;
+
+  const filter = (document.getElementById('searchBus').value || '').trim().toLowerCase();
+  const list = document.getElementById('otList');
+  if (!list) return;
+
+  // FILTRO CLAVE: El admin ve todas las OTs, el usuario normal ve SOLO sus OTs creadas
+  if (!me.isAdmin) {
+    ots = ots.filter(x => x.createdUser === me.username);
+  }
+
+  let filtered = ots.filter(x => (x.bus || '').toLowerCase().includes(filter));
+
+  filtered.sort((a, b) => sortDesc ? (b.timestamp || 0) - (a.timestamp || 0) : (a.timestamp || 0) - (b.timestamp || 0));
+
+  if (!filtered.length) {
+    list.innerHTML = `<li style="text-align:center; color:var(--text-muted);">Sin registros.</li>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(x => `
+    <li class="object-item">
+      <div class="object-header">
+        <span class="object-title">OT: ${x.ot || 'N/A'}</span>
+        <span style="font-size:0.75rem; color:var(--text-muted);">${x.fecha}</span>
+      </div>
+      ${me.isAdmin ? `<div class="object-prop" style="color:var(--primary);"><strong>Creado por:</strong> ${x.createdUser}</div>` : ''}
+      <div class="object-prop"><strong>Bus:</strong> ${x.bus || 'N/A'}</div>
+      <div class="object-prop"><strong>Kilometraje:</strong> ${x.km || 'N/A'}</div>
+      <div class="object-prop"><strong>Detalle:</strong> ${x.detalle || 'N/A'}</div>
+      <div class="object-actions">
+        ${(me.canEdit || me.isAdmin) ? `<button class="btn btn-warning btn-edit-ot" data-id="${x.id}">✏️ Editar</button>` : ''}
+        ${(me.canDelete || me.isAdmin) ? `<button class="btn btn-danger btn-del-ot" data-id="${x.id}">🗑️ Borrar</button>` : ''}
+      </div>
+    </li>
+  `).join('');
+
+  document.querySelectorAll('.btn-del-ot').forEach(btn => {
+    btn.onclick = (e) => {
+      const id = e.target.getAttribute('data-id');
+      let allOts = JSON.parse(localStorage.getItem('sys_ots')) || [];
+      allOts = allOts.filter(x => x.id !== id);
+      localStorage.setItem('sys_ots', JSON.stringify(allOts));
+      renderOTs();
+    };
+  });
+}
+
+function exportBackup() {
   const ots = JSON.parse(localStorage.getItem('sys_ots')) || [];
-  if (isAdmin) return ots;
-  return ots.filter(ot => ot.createdUser === currentUser);
+  const blob = new Blob([JSON.stringify(ots, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `BACKUP_OTS_${Date.now()}.json`;
+  a.click();
+}
+
+function exportToExcel() {
+  let ots = JSON.parse(localStorage.getItem('sys_ots')) || [];
+  if (!ots.length) { alert('No hay registros.'); return; }
+  let csv = "\uFEFFN° OT;Bus;Kilometraje;Detalle;Fecha;Creado Por\n";
+  ots.forEach(x => {
+    csv += `"${x.ot}";"${x.bus}";"${x.km}";"${x.detalle}";"${x.fecha}";"${x.createdUser}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Registros_OT_${Date.now()}.csv`;
+  a.click();
 }
