@@ -1,24 +1,34 @@
-// Obtener usuarios desde Firebase en tiempo real
+// Esperar a que Firebase esté disponible
+function getDb() {
+  if (!window.db) {
+    throw new Error('Firebase no está inicializado en index.html');
+  }
+  return window.db;
+}
+
+// Obtener usuarios desde Firebase
 export async function getUsers() {
   try {
-    const snapshot = await window.db.ref('users').once('value');
+    const db = getDb();
+    const snapshot = await db.ref('users').once('value');
     const data = snapshot.val();
+    
     if (!data) {
-      // Si la base de datos está vacía, crea el usuario admin por defecto
-      const defaultAdmin = [{
+      const defaultAdmin = {
         username: 'admin',
-        password: 'admin',
+        password: '123',
         isAdmin: true,
         status: 'active',
         canEdit: true,
         canDelete: true
-      }];
-      await window.db.ref('users/admin').set(defaultAdmin[0]);
-      return defaultAdmin;
+      };
+      await db.ref('users/admin').set(defaultAdmin);
+      return [defaultAdmin];
     }
     return Object.values(data);
   } catch (error) {
-    console.error('Error al obtener usuarios de Firebase:', error);
+    console.error('Error al conectar con Firebase:', error);
+    alert('Error de conexión con la base de datos: ' + error.message);
     return [];
   }
 }
@@ -32,23 +42,29 @@ export function checkPass(pass) {
 }
 
 export async function login(username, password) {
-  const users = await getUsers();
-  const u = username.trim().toLowerCase();
-  const user = users.find(x => x.username === u && x.password === password);
+  try {
+    const users = await getUsers();
+    const u = username.trim().toLowerCase();
+    const user = users.find(x => x.username === u && x.password === password);
 
-  if (!user) {
-    alert('Usuario o contraseña incorrectos.');
+    if (!user) {
+      alert('Usuario o contraseña incorrectos.');
+      return false;
+    }
+
+    if (user.status === 'blocked') {
+      alert('Este usuario está bloqueado.');
+      return false;
+    }
+
+    sessionStorage.setItem('activeUser', JSON.stringify(user));
+    window.dispatchEvent(new CustomEvent('appLoaded'));
+    alert('¡Inicio de sesión exitoso!');
+    return true;
+  } catch (error) {
+    alert('Error al iniciar sesión: ' + error.message);
     return false;
   }
-
-  if (user.status === 'blocked') {
-    alert('Este usuario está bloqueado.');
-    return false;
-  }
-
-  sessionStorage.setItem('activeUser', JSON.stringify(user));
-  window.dispatchEvent(new CustomEvent('appLoaded'));
-  return true;
 }
 
 export function logout() {
