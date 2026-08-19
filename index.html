@@ -1,14 +1,30 @@
-<!-- En tu index.html -->
-<script type="module">
-  import { getActiveUser, loginUser, registerUser, logoutUser } from './auth.js';
-  import { getOTsForUser, saveOTRecord } from './ots.js';
-  import { createAdminUser } from './admin.js';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de OTs</title>
+</head>
+<body>
+  <h1>Sistema de Gestión de OTs</h1>
+  <div id="app">Cargando la aplicación...</div>
 
-  // Inicializar aplicación
-  window.addEventListener('DOMContentLoaded', () => {
-    const activeUser = getActiveUser();
-    if (activeUser) {
-      console.log('Sesión iniciada como:', activeUser.username);
-    }
-  });
-</script>
+  <!-- Vinculación del módulo principal -->
+  <script type="module">
+    import { getActiveUser } from './auth.js';
+    import { getOTsForUser } from './ots.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = getActiveUser();
+      const app = document.getElementById('app');
+
+      if (!user) {
+        app.innerHTML = '<p>Sesión no iniciada. Por favor, inicia sesión.</p>';
+      } else {
+        const ots = getOTsForUser(user.username, user.isAdmin);
+        app.innerHTML = `<p>Bienvenido, <b>${user.username}</b>. Tienes ${ots.length} OTs registradas.</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
