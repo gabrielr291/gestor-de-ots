@@ -60,7 +60,21 @@ export function initAuthUI() {
       document.getElementById('loginTitle').textContent = isRegistering ? 'Crear Usuario' : 'Iniciar Sesión';
       document.getElementById('loginBtn').textContent = isRegistering ? 'Registrar' : 'Ingresar';
       toggleRegister.textContent = isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes usuario? Crea uno nuevo';
-      document.getElementById('confirmPassGroup').style.display = isRegistering ? 'block' : 'none';
+      const confirmGroup = document.getElementById('confirmPassGroup');
+      if (confirmGroup) confirmGroup.style.display = isRegistering ? 'block' : 'none';
+    });
+  }
+
+  // Toggle for the user security panel (robust: reads computed style and initializes button text)
+  const btnToggleSecurity = document.getElementById('btnToggleSecurity');
+  const userSecurityBody = document.getElementById('userSecurityBody');
+  if (btnToggleSecurity && userSecurityBody) {
+    const isHiddenInit = window.getComputedStyle(userSecurityBody).display === 'none';
+    btnToggleSecurity.textContent = isHiddenInit ? '🔽 Mostrar' : '🔼 Ocultar';
+    btnToggleSecurity.addEventListener('click', () => {
+      const isHidden = window.getComputedStyle(userSecurityBody).display === 'none';
+      userSecurityBody.style.display = isHidden ? 'block' : 'none';
+      btnToggleSecurity.textContent = isHidden ? '🔼 Ocultar' : '🔽 Mostrar';
     });
   }
 
