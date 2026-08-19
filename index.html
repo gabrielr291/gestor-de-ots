@@ -1,0 +1,14 @@
+<!-- En tu index.html -->
+<script type="module">
+  import { getActiveUser, loginUser, registerUser, logoutUser } from './auth.js';
+  import { getOTsForUser, saveOTRecord } from './ots.js';
+  import { createAdminUser } from './admin.js';
+
+  // Inicializar aplicación
+  window.addEventListener('DOMContentLoaded', () => {
+    const activeUser = getActiveUser();
+    if (activeUser) {
+      console.log('Sesión iniciada como:', activeUser.username);
+    }
+  });
+</script>
