@@ -28,7 +28,13 @@ export function initOTsUI() {
   const btnExportExcel = document.getElementById('btnExportExcel');
   if (btnExportExcel) btnExportExcel.addEventListener('click', exportToExcel);
 
+  const importInput = document.getElementById('importFileInput');
+  if (importInput) importInput.addEventListener('change', importBackup);
+
   window.addEventListener('appLoaded', renderOTs);
+
+  // Llamada directa para renderizar al recargar con F5
+  renderOTs();
 }
 
 function addExtraField(key = '', val = '') {
@@ -69,6 +75,8 @@ function saveOT(e) {
       ots[idx] = { ...ots[idx], ot: otVal, bus: busVal, km: kmVal, detalle: detVal, extras };
     }
     editingId = null;
+    document.getElementById('cancelBtn').style.display = 'none';
+    document.getElementById('saveBtn').textContent = 'Guardar OT';
   } else {
     ots.unshift({
       id: 'ID_' + Date.now(),
@@ -97,11 +105,12 @@ export function renderOTs() {
   let users = getUsers();
   let me = users.find(u => u.username === activeUser.username) || activeUser;
 
-  const filter = (document.getElementById('searchBus').value || '').trim().toLowerCase();
+  const searchInput = document.getElementById('searchBus');
+  const filter = searchInput ? searchInput.value.trim().toLowerCase() : '';
   const list = document.getElementById('otList');
   if (!list) return;
 
-  // FILTRO CLAVE: El admin ve todas las OTs, el usuario normal ve SOLO sus OTs creadas
+  // El usuario normal solo ve sus OTs, el admin ve todas
   if (!me.isAdmin) {
     ots = ots.filter(x => x.createdUser === me.username);
   }
@@ -111,7 +120,7 @@ export function renderOTs() {
   filtered.sort((a, b) => sortDesc ? (b.timestamp || 0) - (a.timestamp || 0) : (a.timestamp || 0) - (b.timestamp || 0));
 
   if (!filtered.length) {
-    list.innerHTML = `<li style="text-align:center; color:var(--text-muted);">Sin registros.</li>`;
+    list.innerHTML = `<li style="text-align:center; color:var(--text-muted); padding: 1rem;">Sin registros guardados.</li>`;
     return;
   }
 
@@ -141,6 +150,30 @@ export function renderOTs() {
       renderOTs();
     };
   });
+
+  document.querySelectorAll('.btn-edit-ot').forEach(btn => {
+    btn.onclick = (e) => {
+      const id = e.target.getAttribute('data-id');
+      let allOts = JSON.parse(localStorage.getItem('sys_ots')) || [];
+      const target = allOts.find(x => x.id === id);
+      if (!target) return;
+
+      editingId = id;
+      document.getElementById('otNumber').value = target.ot || '';
+      document.getElementById('busNumber').value = target.bus || '';
+      document.getElementById('kilometraje').value = target.km || '';
+      document.getElementById('detalle').value = target.detalle || '';
+
+      const container = document.getElementById('dynamicContainer');
+      container.innerHTML = '';
+      if (target.extras) {
+        Object.entries(target.extras).forEach(([k, v]) => addExtraField(k, v));
+      }
+
+      document.getElementById('saveBtn').textContent = 'Actualizar OT';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  });
 }
 
 function exportBackup() {
@@ -150,6 +183,25 @@ function exportBackup() {
   a.href = URL.createObjectURL(blob);
   a.download = `BACKUP_OTS_${Date.now()}.json`;
   a.click();
+}
+
+function importBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const imported = JSON.parse(evt.target.result);
+      if (Array.isArray(imported)) {
+        localStorage.setItem('sys_ots', JSON.stringify(imported));
+        alert('Respaldo cargado con éxito.');
+        renderOTs();
+      }
+    } catch (err) {
+      alert('Archivo JSON inválido.');
+    }
+  };
+  reader.readAsText(file);
 }
 
 function exportToExcel() {
@@ -164,4 +216,4 @@ function exportToExcel() {
   a.href = URL.createObjectURL(blob);
   a.download = `Registros_OT_${Date.now()}.csv`;
   a.click();
-}
+                         }
