@@ -15,10 +15,10 @@ export function initOTsUI() {
 
   const sortBtn = document.getElementById('sortBtn');
   if (sortBtn) {
-    sortBtn.addEventListener('click', () => {
+    sortBtn.addEventListener('click', async () => {
       sortDesc = !sortDesc;
       sortBtn.textContent = sortDesc ? '⬇️ Más recientes primero' : '⬆️ Más antiguas primero';
-      renderOTs();
+      await renderOTs();
     });
   }
 
@@ -49,7 +49,7 @@ function addExtraField(key = '', val = '') {
   document.getElementById('dynamicContainer').appendChild(div);
 }
 
-function saveOT(e) {
+async function saveOT(e) {
   e.preventDefault();
   const activeUser = getActiveUser();
   if (!activeUser) return;
@@ -75,8 +75,10 @@ function saveOT(e) {
       ots[idx] = { ...ots[idx], ot: otVal, bus: busVal, km: kmVal, detalle: detVal, extras };
     }
     editingId = null;
-    document.getElementById('cancelBtn').style.display = 'none';
-    document.getElementById('saveBtn').textContent = 'Guardar OT';
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) saveBtn.textContent = 'Guardar OT';
   } else {
     ots.unshift({
       id: 'ID_' + Date.now(),
@@ -94,16 +96,19 @@ function saveOT(e) {
   localStorage.setItem('sys_ots', JSON.stringify(ots));
   document.getElementById('otForm').reset();
   document.getElementById('dynamicContainer').innerHTML = '';
-  renderOTs();
+  await renderOTs();
 }
 
-export function renderOTs() {
+export async function renderOTs() {
   const activeUser = getActiveUser();
   if (!activeUser) return;
 
   let ots = JSON.parse(localStorage.getItem('sys_ots')) || [];
-  let users = getUsers();
-  let me = users.find(u => u.username === activeUser.username) || activeUser;
+  
+  // SOLUCIÓN AL ERROR: getUsers() devuelve una Promesa y requiere await
+  const rawUsers = await getUsers();
+  const users = Array.isArray(rawUsers) ? rawUsers : Object.values(rawUsers || {});
+  let me = users.find(u => u && u.username === activeUser.username) || activeUser;
 
   const searchInput = document.getElementById('searchBus');
   const filter = searchInput ? searchInput.value.trim().toLowerCase() : '';
@@ -142,12 +147,12 @@ export function renderOTs() {
   `).join('');
 
   document.querySelectorAll('.btn-del-ot').forEach(btn => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       const id = e.target.getAttribute('data-id');
       let allOts = JSON.parse(localStorage.getItem('sys_ots')) || [];
       allOts = allOts.filter(x => x.id !== id);
       localStorage.setItem('sys_ots', JSON.stringify(allOts));
-      renderOTs();
+      await renderOTs();
     };
   });
 
@@ -170,7 +175,8 @@ export function renderOTs() {
         Object.entries(target.extras).forEach(([k, v]) => addExtraField(k, v));
       }
 
-      document.getElementById('saveBtn').textContent = 'Actualizar OT';
+      const saveBtn = document.getElementById('saveBtn');
+      if (saveBtn) saveBtn.textContent = 'Actualizar OT';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
   });
@@ -189,13 +195,13 @@ function importBackup(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (evt) => {
+  reader.onload = async (evt) => {
     try {
       const imported = JSON.parse(evt.target.result);
       if (Array.isArray(imported)) {
         localStorage.setItem('sys_ots', JSON.stringify(imported));
         alert('Respaldo cargado con éxito.');
-        renderOTs();
+        await renderOTs();
       }
     } catch (err) {
       alert('Archivo JSON inválido.');
@@ -216,4 +222,4 @@ function exportToExcel() {
   a.href = URL.createObjectURL(blob);
   a.download = `Registros_OT_${Date.now()}.csv`;
   a.click();
-                         }
+}
