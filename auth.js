@@ -6,13 +6,14 @@ function getDb() {
   return window.db;
 }
 
-// Obtener usuarios desde Firebase
+// Obtener usuarios desde Firebase de manera segura
 export async function getUsers() {
   try {
     const db = getDb();
     const snapshot = await db.ref('users').once('value');
     const data = snapshot.val();
     
+    // Si no hay datos en Firebase, crea el admin por defecto
     if (!data) {
       const defaultAdmin = {
         username: 'admin',
@@ -25,7 +26,15 @@ export async function getUsers() {
       await db.ref('users/admin').set(defaultAdmin);
       return [defaultAdmin];
     }
-    return Object.values(data);
+
+    // Garantizar que siempre se devuelva un Array, sin importar el formato de Firebase
+    if (Array.isArray(data)) {
+      return data.filter(Boolean); // Filtra posibles elementos null/undefined
+    } else if (typeof data === 'object') {
+      return Object.values(data);
+    }
+
+    return [];
   } catch (error) {
     console.error('Error al conectar con Firebase:', error);
     alert('Error de conexión con la base de datos: ' + error.message);
@@ -44,8 +53,12 @@ export function checkPass(pass) {
 export async function login(username, password) {
   try {
     const users = await getUsers();
+
+    // Verificación adicional de seguridad para asegurar que 'users' es una lista
+    const userList = Array.isArray(users) ? users : Object.values(users || {});
+    
     const u = username.trim().toLowerCase();
-    const user = users.find(x => x.username === u && x.password === password);
+    const user = userList.find(x => x && x.username === u && x.password === password);
 
     if (!user) {
       alert('Usuario o contraseña incorrectos.');
