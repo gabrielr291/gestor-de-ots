@@ -20,18 +20,23 @@ export function initAdminUI() {
   const btnCsv = document.getElementById('btnExportAuditCsv');
   if (btnCsv) btnCsv.addEventListener('click', () => exportAuditLogs('csv'));
 
+  // 1. Escuchar el evento por si el usuario inicia sesión sin recargar la página
   window.addEventListener('appLoaded', renderAdminSection);
+
+  // 2. LLAMADA DIRECTA: Ejecutar inmediatamente para cuando el usuario recarga con F5
+  renderAdminSection();
 }
 
 export function renderAdminSection() {
   const activeUser = getActiveUser();
   const adminSec = document.getElementById('adminSection');
+  
   if (activeUser && activeUser.isAdmin) {
-    adminSec.style.display = 'block';
+    if (adminSec) adminSec.style.display = 'block';
     renderUsersTable();
     renderAuditLogs();
   } else {
-    adminSec.style.display = 'none';
+    if (adminSec) adminSec.style.display = 'none';
   }
 }
 
@@ -50,6 +55,12 @@ function adminCreateUser() {
 
   users.push({ username: u, password: p, isAdmin: false, status: 'active', canEdit: false, canDelete: false, requestEdit: false });
   localStorage.setItem('sys_users', JSON.stringify(users));
+  
+  // Limpiar campos del formulario
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newUserPass').value = '';
+  document.getElementById('newUserPassConfirm').value = '';
+  
   alert('Usuario creado con éxito.');
   renderUsersTable();
 }
