@@ -86,15 +86,25 @@ function doAuth() {
   const p = document.getElementById('loginPass').value.trim();
   const alertBox = document.getElementById('loginAlert');
 
-  if (!u || !p) { alertBox.textContent = 'Escribe usuario y contraseña.'; alertBox.style.display = 'block'; return; }
+  // helper to show messages safely whether alertBox exists or not
+  const showMsg = (msg) => {
+    if (alertBox) {
+      alertBox.textContent = msg;
+      alertBox.style.display = 'block';
+    } else {
+      alert(msg);
+    }
+  };
+
+  if (!u || !p) { showMsg('Escribe usuario y contraseña.'); return; }
 
   let users = getUsers();
 
   if (isRegistering) {
     const pConfirm = document.getElementById('loginPassConfirm').value.trim();
-    if (users.some(x => x.username === u)) { alertBox.textContent = 'El usuario ya existe.'; alertBox.style.display = 'block'; return; }
-    if (p !== pConfirm) { alertBox.textContent = 'Las contraseñas no coinciden.'; alertBox.style.display = 'block'; return; }
-    if (!checkPass(p)) { alertBox.textContent = 'Contraseña débil. Requiere 8 caracteres, 1 mayúscula, 1 minúscula y 1 número.'; alertBox.style.display = 'block'; return; }
+    if (users.some(x => x.username === u)) { showMsg('El usuario ya existe.'); return; }
+    if (p !== pConfirm) { showMsg('Las contraseñas no coinciden.'); return; }
+    if (!checkPass(p)) { showMsg('Contraseña débil. Requiere 8 caracteres, 1 mayúscula, 1 minúscula y 1 número.'); return; }
 
     const newUser = { username: u, password: p, isAdmin: false, status: 'active', canEdit: false, canDelete: false, requestEdit: false };
     users.push(newUser);
@@ -103,8 +113,8 @@ function doAuth() {
     showApp(newUser);
   } else {
     const found = users.find(x => x.username === u && x.password === p);
-    if (!found) { alertBox.textContent = 'Usuario o contraseña incorrectos.'; alertBox.style.display = 'block'; return; }
-    if (found.status === 'blocked') { alertBox.textContent = 'Usuario bloqueado.'; alertBox.style.display = 'block'; return; }
+    if (!found) { showMsg('Usuario o contraseña incorrectos.'); return; }
+    if (found.status === 'blocked') { showMsg('Usuario bloqueado.'); return; }
 
     localStorage.setItem('sys_session', JSON.stringify(found));
     showApp(found);
