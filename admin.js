@@ -12,7 +12,12 @@ export function initAdminUI() {
   }
 
   const btnCreate = document.getElementById('btnAdminCreateUser');
-  if (btnCreate) btnCreate.addEventListener('click', adminCreateUser);
+  if (btnCreate) {
+    btnCreate.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await adminCreateUser();
+    });
+  }
 
   const btnJson = document.getElementById('btnExportAuditJson');
   if (btnJson) btnJson.addEventListener('click', () => exportAuditLogs('json'));
@@ -20,53 +25,65 @@ export function initAdminUI() {
   const btnCsv = document.getElementById('btnExportAuditCsv');
   if (btnCsv) btnCsv.addEventListener('click', () => exportAuditLogs('csv'));
 
-  // 1. Escuchar el evento por si el usuario inicia sesión sin recargar la página
   window.addEventListener('appLoaded', renderAdminSection);
-
-  // 2. LLAMADA DIRECTA: Ejecutar inmediatamente para cuando el usuario recarga con F5
   renderAdminSection();
 }
 
-export function renderAdminSection() {
+export async function renderAdminSection() {
   const activeUser = getActiveUser();
   const adminSec = document.getElementById('adminSection');
   
   if (activeUser && activeUser.isAdmin) {
     if (adminSec) adminSec.style.display = 'block';
-    renderUsersTable();
+    await renderUsersTable();
     renderAuditLogs();
   } else {
     if (adminSec) adminSec.style.display = 'none';
   }
 }
 
-function adminCreateUser() {
+async function adminCreateUser() {
   const u = document.getElementById('newUsername').value.trim().toLowerCase();
   const p = document.getElementById('newUserPass').value.trim();
   const pConfirm = document.getElementById('newUserPassConfirm').value.trim();
 
   if (!u || !p || p !== pConfirm || !checkPass(p)) {
-    alert('Verifica los datos de creación de usuario.');
+    alert('Verifica los datos: Las contraseñas deben coincidir y tener al menos 3 caracteres.');
     return;
   }
 
-  let users = getUsers();
-  if (users.some(x => x.username === u)) { alert('El usuario ya existe.'); return; }
+  try {
+    let users = await getUsers();
+    if (users.some(x => x.username === u)) {
+      alert('El usuario ya existe.');
+      return;
+    }
 
-  users.push({ username: u, password: p, isAdmin: false, status: 'active', canEdit: false, canDelete: false, requestEdit: false });
-  localStorage.setItem('sys_users', JSON.stringify(users));
-  
-  // Limpiar campos del formulario
-  document.getElementById('newUsername').value = '';
-  document.getElementById('newUserPass').value = '';
-  document.getElementById('newUserPassConfirm').value = '';
-  
-  alert('Usuario creado con éxito.');
-  renderUsersTable();
+    const newUser = {
+      username: u,
+      password: p,
+      isAdmin: false,
+      status: 'active',
+      canEdit: false,
+      canDelete: false,
+      requestEdit: false
+    };
+
+    await window.db.ref('users/' + u).set(newUser);
+
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newUserPass').value = '';
+    document.getElementById('newUserPassConfirm').value = '';
+
+    alert('✅ Usuario creado con éxito en la nube.');
+    await renderUsersTable();
+  } catch (err) {
+    alert('Error al crear usuario: ' + err.message);
+  }
 }
 
-function renderUsersTable() {
-  const users = getUsers();
+async function renderUsersTable() {
+  const users = await getUsers();
   const tbody = document.getElementById('userTableBody');
   if (!tbody) return;
 
@@ -86,27 +103,27 @@ function renderUsersTable() {
   }).join('');
 
   document.querySelectorAll('.perm-check').forEach(chk => {
-    chk.onchange = (e) => {
+    chk.onchange = async (e) => {
       const uname = e.target.getAttribute('data-user');
       const perm = e.target.getAttribute('data-perm');
-      let allUsers = getUsers();
+      let allUsers = await getUsers();
       let target = allUsers.find(x => x.username === uname);
       if (target) {
         target[perm] = e.target.checked;
-        localStorage.setItem('sys_users', JSON.stringify(allUsers));
+        await window.db.ref('users/' + uname).set(target);
       }
     };
   });
 
   document.querySelectorAll('.btn-block-user').forEach(btn => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       const uname = e.target.getAttribute('data-user');
-      let allUsers = getUsers();
+      let allUsers = await getUsers();
       let target = allUsers.find(x => x.username === uname);
       if (target) {
         target.status = target.status === 'blocked' ? 'active' : 'blocked';
-        localStorage.setItem('sys_users', JSON.stringify(allUsers));
-        renderUsersTable();
+        await window.db.ref('users/' + uname).set(target);
+        await renderUsersTable();
       }
     };
   });
