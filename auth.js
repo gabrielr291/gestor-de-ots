@@ -69,13 +69,21 @@ export function initAuthUI() {
   const btnToggleSecurity = document.getElementById('btnToggleSecurity');
   const userSecurityBody = document.getElementById('userSecurityBody');
   if (btnToggleSecurity && userSecurityBody) {
-    const isHiddenInit = window.getComputedStyle(userSecurityBody).display === 'none';
-    btnToggleSecurity.textContent = isHiddenInit ? '🔽 Mostrar' : '🔼 Ocultar';
-    btnToggleSecurity.addEventListener('click', () => {
-      const isHidden = window.getComputedStyle(userSecurityBody).display === 'none';
-      userSecurityBody.style.display = isHidden ? 'block' : 'none';
-      btnToggleSecurity.textContent = isHidden ? '🔼 Ocultar' : '🔽 Mostrar';
-    });
+    try {
+      const isHiddenInit = window.getComputedStyle(userSecurityBody).display === 'none';
+      // normalize inline style to match computed state so toggling is consistent
+      userSecurityBody.style.display = isHiddenInit ? 'none' : 'block';
+      btnToggleSecurity.textContent = isHiddenInit ? '🔽 Mostrar' : '🔼 Ocultar';
+      btnToggleSecurity.addEventListener('click', (e) => {
+        e.preventDefault();
+        const currentlyHidden = window.getComputedStyle(userSecurityBody).display === 'none';
+        userSecurityBody.style.display = currentlyHidden ? 'block' : 'none';
+        btnToggleSecurity.textContent = currentlyHidden ? '🔼 Ocultar' : '🔽 Mostrar';
+        console.debug('btnToggleSecurity clicked, display ->', userSecurityBody.style.display);
+      });
+    } catch (err) {
+      console.error('Error initializing security toggle:', err);
+    }
   }
 
   const loginBtn = document.getElementById('loginBtn');
