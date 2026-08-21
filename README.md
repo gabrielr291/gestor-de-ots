@@ -1,1 +1,1 @@
-pagina de gestión de ordenes de trabajo. se guardan en localstorage por ahora. pero pronto estará con base de datos
+pagina de gestión de ordenes de trabajo. con conexión a base de datos firebase realtime. gestión de usuarios con admin y modificación y eliminación de usuarios
