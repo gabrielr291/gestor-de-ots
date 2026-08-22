@@ -167,10 +167,10 @@ async function doAuth() {
         uid: cred.user.uid,
         username: emailInput.split('@')[0],
         email: email,
-        isAdmin: true, 
+        isAdmin: false, 
         status: 'active',
-        canEdit: true,
-        canDelete: true,
+        canEdit: false,
+        canDelete: false,
         requestEdit: false
       });
 
