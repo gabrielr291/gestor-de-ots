@@ -471,6 +471,7 @@ function renderOTs() {
           <span class="object-title">OT: ${escapeHTML(x.ot || 'N/A')}</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(x.fecha)}</span>
         </div>
+        <div class="object-prop"><strong>Creado por:</strong> ${escapeHTML(x.createdUser || 'Sin registrar')}</div>
         <div class="object-prop"><strong>Bus:</strong> ${escapeHTML(x.bus || 'N/A')}</div>
         <div class="object-prop"><strong>Kilometraje:</strong> ${escapeHTML(x.km || 'N/A')}</div>
         <div class="object-prop"><strong>Detalle:</strong>\n${escapeHTML(x.detalle || 'N/A')}</div>
