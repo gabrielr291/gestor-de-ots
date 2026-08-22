@@ -23,7 +23,7 @@ let globalUsers = {};
 let globalOTs = {};
 let globalLogs = {};
 
-// Prevenir inyección de HTML (XSS)
+// Sanitización para prevenir ataques XSS
 function escapeHTML(str) {
   if (!str) return '';
   return String(str)
@@ -71,10 +71,12 @@ function syncUserProfile(uid) {
 function subscribeAdminData() {
   db.ref('users').on('value', (snapshot) => {
     globalUsers = snapshot.val() || {};
+    renderUsersTable();
   });
 
   db.ref('audit_logs').on('value', (snapshot) => {
     globalLogs = snapshot.val() || {};
+    renderAuditLogs();
   });
 }
 
@@ -159,15 +161,13 @@ async function doAuth() {
     }
 
     try {
-      // 1. Crear usuario en Firebase Auth
       const cred = await auth.createUserWithEmailAndPassword(email, p);
       
-      // 2. Guardar registro en Realtime Database
       await db.ref(`users/${cred.user.uid}`).set({
         uid: cred.user.uid,
         username: emailInput.split('@')[0],
         email: email,
-        isAdmin: true, // Asignado como Admin para tu primer registro
+        isAdmin: true, 
         status: 'active',
         canEdit: true,
         canDelete: true,
@@ -220,6 +220,106 @@ function toggleSection(id, btn) {
   if (btn) btn.textContent = isHidden ? '🔼 Ocultar' : '🔽 Mostrar';
 }
 
+// CAMBIO DE CONTRASEÑA
+async function updatePassword() {
+  const oldPass = document.getElementById('oldPass').value;
+  const newPass = document.getElementById('changePass').value;
+  const newPassConfirm = document.getElementById('changePassConfirm').value;
+
+  if (!oldPass || !newPass || !newPassConfirm) {
+    alert('Completa todos los campos para cambiar la contraseña.');
+    return;
+  }
+  if (newPass !== newPassConfirm) {
+    alert('La nueva contraseña y su confirmación no coinciden.');
+    return;
+  }
+  if (!checkPass(newPass)) {
+    alert('La nueva contraseña no cumple con los requisitos de seguridad.');
+    return;
+  }
+
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(activeUser.email, oldPass);
+    await activeUser.reauthenticateWithCredential(cred);
+    await activeUser.updatePassword(newPass);
+    
+    alert('¡Contraseña actualizada con éxito!');
+    document.getElementById('oldPass').value = '';
+    document.getElementById('changePass').value = '';
+    document.getElementById('changePassConfirm').value = '';
+  } catch (err) {
+    alert('Error al actualizar contraseña: ' + err.message);
+  }
+}
+
+// GESTIÓN Y AUDITORÍA DE USUARIOS (ADMIN)
+function renderUsersTable() {
+  const tbody = document.getElementById('userTableBody');
+  if (!tbody) return;
+
+  const users = Object.values(globalUsers);
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${escapeHTML(u.username)} ${u.isAdmin ? '<b>(Admin)</b>' : ''}</td>
+      <td><span style="color:${u.status === 'blocked' ? 'red' : 'green'}">${escapeHTML(u.status)}</span></td>
+      <td>
+        <input type="checkbox" ${u.canEdit ? 'checked' : ''} onchange="toggleUserPerm('${u.uid}', 'canEdit', this.checked)" ${u.isAdmin ? 'disabled' : ''} />
+      </td>
+      <td>
+        <input type="checkbox" ${u.canDelete ? 'checked' : ''} onchange="toggleUserPerm('${u.uid}', 'canDelete', this.checked)" ${u.isAdmin ? 'disabled' : ''} />
+      </td>
+      <td>
+        ${!u.isAdmin ? `
+          <button class="btn btn-secondary" onclick="toggleUserStatus('${u.uid}', '${u.status}')">
+            ${u.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+          </button>
+        ` : 'N/A'}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function toggleUserPerm(uid, field, val) {
+  db.ref(`users/${uid}/${field}`).set(val);
+}
+
+function toggleUserStatus(uid, currentStatus) {
+  const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
+  db.ref(`users/${uid}/status`).set(newStatus);
+}
+
+function renderAuditLogs() {
+  const list = document.getElementById('auditLogsList');
+  if (!list) return;
+
+  const logs = Object.values(globalLogs).reverse();
+  if (!logs.length) {
+    list.innerHTML = `<li style="color:var(--text-muted); font-size:0.8rem;">No hay ediciones registradas.</li>`;
+    return;
+  }
+
+  list.innerHTML = logs.map(l => `
+    <li style="font-size:0.8rem; margin-bottom:0.4rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.2rem;">
+      <b>${escapeHTML(l.user)}</b> [${escapeHTML(l.timestamp)}]: OT ${escapeHTML(l.otNumber)} - <i>${escapeHTML(l.changes)}</i>
+    </li>
+  `).join('');
+}
+
+// REGISTRO Y EDICIÓN DE OT
+function addExtraField() {
+  const container = document.getElementById('dynamicContainer');
+  const div = document.createElement('div');
+  div.className = 'dynamic-field';
+  div.style.cssText = 'display:flex; gap:0.5rem; margin-top:0.4rem;';
+  div.innerHTML = `
+    <input type="text" class="extra-key" placeholder="Nombre (Ej: Técnico)" style="flex:1;" />
+    <input type="text" class="extra-val" placeholder="Valor (Ej: Juan Pérez)" style="flex:1;" />
+    <button type="button" class="btn btn-danger" style="width:auto;" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(div);
+}
+
 function saveOT(e) {
   e.preventDefault();
 
@@ -233,6 +333,13 @@ function saveOT(e) {
   const kmVal = document.getElementById('kilometraje').value.trim();
   const detVal = document.getElementById('detalle').value.trim();
 
+  const extras = {};
+  document.querySelectorAll('.dynamic-field').forEach(f => {
+    const k = f.querySelector('.extra-key').value.trim();
+    const v = f.querySelector('.extra-val').value.trim();
+    if (k) extras[k] = v;
+  });
+
   const now = new Date();
 
   if (editingId) {
@@ -245,11 +352,11 @@ function saveOT(e) {
       user: currentUserProfile.username,
       timestamp: now.toLocaleString('es-ES'),
       otNumber: oldRecord.ot || 'S/N',
-      changes: changes.length > 0 ? changes.join(' | ') : 'Modificación'
+      changes: changes.length > 0 ? changes.join(' | ') : 'Modificación en campos'
     });
 
     db.ref('ots/' + editingId).update({
-      ot: otVal, bus: busVal, km: kmVal, detalle: detVal
+      ot: otVal, bus: busVal, km: kmVal, detalle: detVal, extras
     });
   } else {
     const newRef = db.ref('ots').push();
@@ -259,6 +366,7 @@ function saveOT(e) {
       bus: busVal,
       km: kmVal,
       detalle: detVal,
+      extras,
       fecha: now.toLocaleDateString('es-ES'),
       timestamp: now.getTime(),
       createdUid: activeUser.uid,
@@ -294,21 +402,31 @@ function renderOTs() {
   const canEdit = currentUserProfile.canEdit || currentUserProfile.isAdmin;
   const canDelete = currentUserProfile.canDelete || currentUserProfile.isAdmin;
 
-  list.innerHTML = filtered.map(x => `
-    <li class="object-item">
-      <div class="object-header">
-        <span class="object-title">OT: ${escapeHTML(x.ot || 'N/A')}</span>
-        <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(x.fecha)}</span>
-      </div>
-      <div class="object-prop"><strong>Bus:</strong> ${escapeHTML(x.bus || 'N/A')}</div>
-      <div class="object-prop"><strong>Kilometraje:</strong> ${escapeHTML(x.km || 'N/A')}</div>
-      <div class="object-prop"><strong>Detalle:</strong>\n${escapeHTML(x.detalle || 'N/A')}</div>
-      <div class="object-actions" style="margin-top:0.5rem;">
-        ${canEdit ? `<button type="button" class="btn btn-warning" onclick="editOT('${x.id}')">✏️ Editar</button>` : ''}
-        ${canDelete ? `<button type="button" class="btn btn-danger" onclick="deleteOT('${x.id}')">🗑️ Borrar</button>` : ''}
-      </div>
-    </li>
-  `).join('');
+  list.innerHTML = filtered.map(x => {
+    let extrasHtml = '';
+    if (x.extras) {
+      extrasHtml = Object.entries(x.extras)
+        .map(([k, v]) => `<div class="object-prop"><strong>${escapeHTML(k)}:</strong> ${escapeHTML(v)}</div>`)
+        .join('');
+    }
+
+    return `
+      <li class="object-item">
+        <div class="object-header">
+          <span class="object-title">OT: ${escapeHTML(x.ot || 'N/A')}</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(x.fecha)}</span>
+        </div>
+        <div class="object-prop"><strong>Bus:</strong> ${escapeHTML(x.bus || 'N/A')}</div>
+        <div class="object-prop"><strong>Kilometraje:</strong> ${escapeHTML(x.km || 'N/A')}</div>
+        <div class="object-prop"><strong>Detalle:</strong>\n${escapeHTML(x.detalle || 'N/A')}</div>
+        ${extrasHtml}
+        <div class="object-actions" style="margin-top:0.5rem;">
+          ${canEdit ? `<button type="button" class="btn btn-warning" onclick="editOT('${x.id}')">✏️ Editar</button>` : ''}
+          ${canDelete ? `<button type="button" class="btn btn-danger" onclick="deleteOT('${x.id}')">🗑️ Borrar</button>` : ''}
+        </div>
+      </li>
+    `;
+  }).join('');
 }
 
 function editOT(id) {
@@ -320,6 +438,22 @@ function editOT(id) {
   document.getElementById('busNumber').value = item.bus || '';
   document.getElementById('kilometraje').value = item.km || '';
   document.getElementById('detalle').value = item.detalle || '';
+
+  const container = document.getElementById('dynamicContainer');
+  container.innerHTML = '';
+  if (item.extras) {
+    Object.entries(item.extras).forEach(([k, v]) => {
+      const div = document.createElement('div');
+      div.className = 'dynamic-field';
+      div.style.cssText = 'display:flex; gap:0.5rem; margin-top:0.4rem;';
+      div.innerHTML = `
+        <input type="text" class="extra-key" value="${escapeHTML(k)}" style="flex:1;" />
+        <input type="text" class="extra-val" value="${escapeHTML(v)}" style="flex:1;" />
+        <button type="button" class="btn btn-danger" style="width:auto;" onclick="this.parentElement.remove()">✕</button>
+      `;
+      container.appendChild(div);
+    });
+  }
 
   document.getElementById('formTitle').textContent = 'Editar OT';
   document.getElementById('saveBtn').textContent = 'Actualizar OT';
@@ -335,6 +469,7 @@ function deleteOT(id) {
 function resetForm() {
   editingId = null;
   document.getElementById('otForm').reset();
+  document.getElementById('dynamicContainer').innerHTML = '';
   document.getElementById('formTitle').textContent = 'Registrar OT';
   document.getElementById('saveBtn').textContent = 'Guardar OT';
   document.getElementById('cancelBtn').style.display = 'none';
@@ -347,6 +482,82 @@ function toggleSortOrder() {
     btn.textContent = sortDesc ? '⬇️ Más recientes primero' : '⬆️ Más antiguos primero';
   }
   renderOTs();
+}
+
+// EXPORTACIÓN Y RESPALDO (JSON / EXCEL CSV)
+function exportBackup() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalOTs, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `respaldo_ots_${new Date().toISOString().slice(0,10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      const importedData = JSON.parse(event.target.result);
+      if (typeof importedData === 'object') {
+        db.ref('ots').update(importedData, (err) => {
+          if (err) alert('Error al cargar datos: ' + err.message);
+          else alert('¡Respaldo importado con éxito!');
+        });
+      }
+    } catch (err) {
+      alert('El archivo no tiene un formato JSON válido.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportToExcel() {
+  let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+  csvContent += "OT,Bus,Kilometraje,Fecha,Usuario,Detalle\n";
+
+  Object.values(globalOTs).forEach(x => {
+    const row = [
+      `"${x.ot || ''}"`,
+      `"${x.bus || ''}"`,
+      `"${x.km || ''}"`,
+      `"${x.fecha || ''}"`,
+      `"${x.createdUser || ''}"`,
+      `"${(x.detalle || '').replace(/"/g, '""')}"`
+    ];
+    csvContent += row.join(",") + "\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `reporte_ots_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function exportAuditLogs(type) {
+  if (type === 'json') {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalLogs, null, 2));
+    const a = document.createElement('a');
+    a.href = dataStr;
+    a.download = `auditoria_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  } else if (type === 'csv') {
+    let csv = "data:text/csv;charset=utf-8,\uFEFFUsuario,Fecha/Hora,OT,Cambios\n";
+    Object.values(globalLogs).forEach(l => {
+      csv += `"${l.user}","${l.timestamp}","${l.otNumber}","${(l.changes || '').replace(/"/g, '""')}"\n`;
+    });
+    const a = document.createElement('a');
+    a.href = encodeURI(csv);
+    a.download = `auditoria_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
 }
 
 window.onload = init;
