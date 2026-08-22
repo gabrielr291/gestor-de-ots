@@ -23,7 +23,7 @@ let globalUsers = {};
 let globalOTs = {};
 let globalLogs = {};
 
-// Sanitización para prevenir XSS
+// Prevenir inyección de HTML (XSS)
 function escapeHTML(str) {
   if (!str) return '';
   return String(str)
@@ -53,14 +53,13 @@ function syncUserProfile(uid) {
     if (!currentUserProfile) return;
 
     if (currentUserProfile.status === 'blocked') {
-      alert('Tu usuario está bloqueado.');
+      alert('Tu cuenta está bloqueada.');
       logout();
       return;
     }
 
     showApp();
 
-    // Si es administrador, suscribir a datos sensibles
     if (currentUserProfile.isAdmin) {
       subscribeAdminData();
     }
@@ -72,12 +71,10 @@ function syncUserProfile(uid) {
 function subscribeAdminData() {
   db.ref('users').on('value', (snapshot) => {
     globalUsers = snapshot.val() || {};
-    renderUsersTable();
   });
 
   db.ref('audit_logs').on('value', (snapshot) => {
     globalLogs = snapshot.val() || {};
-    renderAuditLogs();
   });
 }
 
@@ -92,14 +89,43 @@ function checkPass(pass) {
   return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(pass);
 }
 
-function showAlert(msg) {
-  const box = document.getElementById('loginAlert');
-  box.textContent = msg;
+function checkStrength(val, barId, textId, boxId) {
+  const box = document.getElementById(boxId);
+  const bar = document.getElementById(barId);
+  const text = document.getElementById(textId);
+  if (!box || !bar || !text) return;
+
+  if (!val) {
+    box.style.display = 'none';
+    return;
+  }
   box.style.display = 'block';
+
+  let score = 0;
+  if (val.length >= 8) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[a-z]/.test(val)) score++;
+  if (/\d/.test(val)) score++;
+
+  if (score <= 2) {
+    bar.style.width = '33%';
+    bar.style.background = '#ef4444';
+    text.textContent = 'Débil';
+  } else if (score === 3) {
+    bar.style.width = '66%';
+    bar.style.background = '#f59e0b';
+    text.textContent = 'Media';
+  } else {
+    bar.style.width = '100%';
+    bar.style.background = '#10b981';
+    text.textContent = 'Fuerte';
+  }
 }
 
 function toggleAuthMode() {
-  document.getElementById('loginAlert').style.display = 'none';
+  const alertBox = document.getElementById('loginAlert');
+  if (alertBox) alertBox.style.display = 'none';
+  
   isRegistering = !isRegistering;
   document.getElementById('loginTitle').textContent = isRegistering ? 'Crear Usuario' : 'Iniciar Sesión';
   document.getElementById('loginBtn').textContent = isRegistering ? 'Registrar' : 'Ingresar';
@@ -108,39 +134,58 @@ function toggleAuthMode() {
 }
 
 async function doAuth() {
-  document.getElementById('loginAlert').style.display = 'none';
+  const alertBox = document.getElementById('loginAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
   const emailInput = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value.trim();
 
-  if (!emailInput || !p) { showAlert('Escribe correo y contraseña.'); return; }
+  if (!emailInput || !p) { 
+    alert('Ingresa usuario y contraseña.'); 
+    return; 
+  }
 
-  // Formatear alias simple a email si no tiene arroba
   const email = emailInput.includes('@') ? emailInput : `${emailInput}@gestorots.local`;
 
-  try {
-    if (isRegistering) {
-      const pConfirm = document.getElementById('loginPassConfirm').value.trim();
-      if (p !== pConfirm) { showAlert('Las contraseñas no coinciden.'); return; }
-      if (!checkPass(p)) { showAlert('Contraseña débil. Requiere 8 caracteres, 1 mayúscula, 1 minúscula y 1 número.'); return; }
+  if (isRegistering) {
+    const pConfirm = document.getElementById('loginPassConfirm').value.trim();
+    if (p !== pConfirm) { 
+      alert('Las contraseñas no coinciden.'); 
+      return; 
+    }
+    if (!checkPass(p)) { 
+      alert('Contraseña débil. Debe contener mínimo 8 caracteres, 1 mayúscula, 1 minúscula y 1 número.'); 
+      return; 
+    }
 
+    try {
+      // 1. Crear usuario en Firebase Auth
       const cred = await auth.createUserWithEmailAndPassword(email, p);
       
-      // Crear perfil público en base de datos
+      // 2. Guardar registro en Realtime Database
       await db.ref(`users/${cred.user.uid}`).set({
         uid: cred.user.uid,
         username: emailInput.split('@')[0],
         email: email,
-        isAdmin: false,
+        isAdmin: true, // Asignado como Admin para tu primer registro
         status: 'active',
-        canEdit: false,
-        canDelete: false,
+        canEdit: true,
+        canDelete: true,
         requestEdit: false
       });
-    } else {
-      await auth.signInWithEmailAndPassword(email, p);
+
+      alert('¡Usuario registrado correctamente!');
+    } catch (err) {
+      console.error(err);
+      alert(`Error en registro: ${err.message}`);
     }
-  } catch (err) {
-    showAlert(err.message || 'Error de autenticación.');
+  } else {
+    try {
+      await auth.signInWithEmailAndPassword(email, p);
+    } catch (err) {
+      console.error(err);
+      alert(`Error al iniciar sesión: ${err.message}`);
+    }
   }
 }
 
@@ -167,6 +212,14 @@ function showApp() {
   renderOTs();
 }
 
+function toggleSection(id, btn) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.textContent = isHidden ? '🔼 Ocultar' : '🔽 Mostrar';
+}
+
 function saveOT(e) {
   e.preventDefault();
 
@@ -180,17 +233,10 @@ function saveOT(e) {
   const kmVal = document.getElementById('kilometraje').value.trim();
   const detVal = document.getElementById('detalle').value.trim();
 
-  const extras = {};
-  document.querySelectorAll('.dynamic-field').forEach(f => {
-    const k = f.querySelector('.extra-key').value.trim();
-    const v = f.querySelector('.extra-val').value.trim();
-    if (k) extras[k] = v;
-  });
-
   const now = new Date();
 
   if (editingId) {
-    const oldRecord = globalOTs[editingId];
+    const oldRecord = globalOTs[editingId] || {};
     let changes = [];
     if (oldRecord.ot !== otVal) changes.push(`OT: "${oldRecord.ot}" ➔ "${otVal}"`);
     if (oldRecord.bus !== busVal) changes.push(`Bus: "${oldRecord.bus}" ➔ "${busVal}"`);
@@ -199,11 +245,11 @@ function saveOT(e) {
       user: currentUserProfile.username,
       timestamp: now.toLocaleString('es-ES'),
       otNumber: oldRecord.ot || 'S/N',
-      changes: changes.length > 0 ? changes.join(' | ') : 'Modificación en campos'
+      changes: changes.length > 0 ? changes.join(' | ') : 'Modificación'
     });
 
     db.ref('ots/' + editingId).update({
-      ot: otVal, bus: busVal, km: kmVal, detalle: detVal, extras
+      ot: otVal, bus: busVal, km: kmVal, detalle: detVal
     });
   } else {
     const newRef = db.ref('ots').push();
@@ -213,7 +259,6 @@ function saveOT(e) {
       bus: busVal,
       km: kmVal,
       detalle: detVal,
-      extras,
       fecha: now.toLocaleDateString('es-ES'),
       timestamp: now.getTime(),
       createdUid: activeUser.uid,
@@ -228,19 +273,21 @@ function renderOTs() {
   if (!currentUserProfile) return;
 
   let ots = Object.values(globalOTs);
-  const filter = document.getElementById('searchBus').value.trim().toLowerCase();
+  const filterInput = document.getElementById('searchBus');
+  const filter = filterInput ? filterInput.value.trim().toLowerCase() : '';
   const list = document.getElementById('otList');
+
+  if (!list) return;
 
   if (!currentUserProfile.isAdmin) {
     ots = ots.filter(x => x.createdUid === activeUser.uid);
   }
 
   let filtered = ots.filter(x => (x.bus || '').toLowerCase().includes(filter));
-
   filtered.sort((a, b) => sortDesc ? (b.timestamp || 0) - (a.timestamp || 0) : (a.timestamp || 0) - (b.timestamp || 0));
 
   if (!filtered.length) {
-    list.innerHTML = `<li style="text-align:center; color:var(--text-muted);">Sin registros.</li>`;
+    list.innerHTML = `<li style="text-align:center; color:var(--text-muted); padding:1rem;">Sin registros guardados.</li>`;
     return;
   }
 
@@ -256,12 +303,27 @@ function renderOTs() {
       <div class="object-prop"><strong>Bus:</strong> ${escapeHTML(x.bus || 'N/A')}</div>
       <div class="object-prop"><strong>Kilometraje:</strong> ${escapeHTML(x.km || 'N/A')}</div>
       <div class="object-prop"><strong>Detalle:</strong>\n${escapeHTML(x.detalle || 'N/A')}</div>
-      <div class="object-actions">
+      <div class="object-actions" style="margin-top:0.5rem;">
         ${canEdit ? `<button type="button" class="btn btn-warning" onclick="editOT('${x.id}')">✏️ Editar</button>` : ''}
         ${canDelete ? `<button type="button" class="btn btn-danger" onclick="deleteOT('${x.id}')">🗑️ Borrar</button>` : ''}
       </div>
     </li>
   `).join('');
+}
+
+function editOT(id) {
+  const item = globalOTs[id];
+  if (!item) return;
+
+  editingId = id;
+  document.getElementById('otNumber').value = item.ot || '';
+  document.getElementById('busNumber').value = item.bus || '';
+  document.getElementById('kilometraje').value = item.km || '';
+  document.getElementById('detalle').value = item.detalle || '';
+
+  document.getElementById('formTitle').textContent = 'Editar OT';
+  document.getElementById('saveBtn').textContent = 'Actualizar OT';
+  document.getElementById('cancelBtn').style.display = 'inline-block';
 }
 
 function deleteOT(id) {
@@ -273,10 +335,18 @@ function deleteOT(id) {
 function resetForm() {
   editingId = null;
   document.getElementById('otForm').reset();
-  document.getElementById('dynamicContainer').innerHTML = '';
   document.getElementById('formTitle').textContent = 'Registrar OT';
   document.getElementById('saveBtn').textContent = 'Guardar OT';
   document.getElementById('cancelBtn').style.display = 'none';
+}
+
+function toggleSortOrder() {
+  sortDesc = !sortDesc;
+  const btn = document.getElementById('sortBtn');
+  if (btn) {
+    btn.textContent = sortDesc ? '⬇️ Más recientes primero' : '⬆️ Más antiguos primero';
+  }
+  renderOTs();
 }
 
 window.onload = init;
