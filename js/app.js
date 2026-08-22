@@ -23,7 +23,7 @@ let globalUsers = {};
 let globalOTs = {};
 let globalLogs = {};
 
-// Sanitización para prevenir ataques XSS
+// Sanitización contra ataques XSS
 function escapeHTML(str) {
   if (!str) return '';
   return String(str)
@@ -250,6 +250,61 @@ async function updatePassword() {
     document.getElementById('changePassConfirm').value = '';
   } catch (err) {
     alert('Error al actualizar contraseña: ' + err.message);
+  }
+}
+
+// CREACIÓN DE USUARIO DESDE EL PANEL ADMIN
+async function adminCreateUser() {
+  const newUser = document.getElementById('newUsername').value.trim();
+  const pass = document.getElementById('newUserPass').value.trim();
+  const passConfirm = document.getElementById('newUserPassConfirm').value.trim();
+
+  if (!newUser || !pass || !passConfirm) {
+    alert('Por favor, completa todos los campos.');
+    return;
+  }
+
+  if (pass !== passConfirm) {
+    alert('Las contraseñas no coinciden.');
+    return;
+  }
+
+  if (!checkPass(pass)) {
+    alert('La contraseña debe tener mínimo 8 caracteres, con mayúscula, minúscula y número.');
+    return;
+  }
+
+  const email = newUser.includes('@') ? newUser : `${newUser}@gestorots.local`;
+
+  try {
+    const tempApp = firebase.initializeApp(firebaseConfig, 'SecondaryApp');
+    const tempAuth = tempApp.auth();
+
+    const cred = await tempAuth.createUserWithEmailAndPassword(email, pass);
+
+    await db.ref(`users/${cred.user.uid}`).set({
+      uid: cred.user.uid,
+      username: newUser.split('@')[0],
+      email: email,
+      isAdmin: false,
+      status: 'active',
+      canEdit: true,
+      canDelete: false,
+      requestEdit: false
+    });
+
+    await tempAuth.signOut();
+    await tempApp.delete();
+
+    alert(`¡Usuario "${newUser}" creado exitosamente!`);
+
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newUserPass').value = '';
+    document.getElementById('newUserPassConfirm').value = '';
+
+  } catch (err) {
+    console.error(err);
+    alert('Error al crear usuario: ' + err.message);
   }
 }
 
