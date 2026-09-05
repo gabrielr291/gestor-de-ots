@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Gestión de OTs con Firebase</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- LOGIN Y REGISTRO -->
+    <div id="viewLogin" class="card">
+      <h1 id="loginTitle" style="text-align: center; margin-bottom: 0.5rem;">Iniciar Sesión</h1>
+      <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Gestor de OTs</p>
+      
+      <div id="loginAlert" class="alert"></div>
+
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="loginUser" placeholder="Ej: admin" />
+      </div>
+      
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••" oninput="checkStrength(this.value, 'loginMeterBar', 'loginMeterText', 'loginMeterBox')" />
+        
+        <div id="loginMeterBox" class="meter-container">
+          <div class="meter-bar"><div id="loginMeterBar" class="meter-fill"></div></div>
+          <span id="loginMeterText" class="meter-text"></span>
+        </div>
+      </div>
+
+      <div id="confirmPassGroup" class="form-group" style="display: none;">
+        <label>Confirmar Contraseña</label>
+        <input type="password" id="loginPassConfirm" placeholder="••••••••" />
+        <div class="password-hint">Mínimo 8 caracteres: 1 mayúscula, 1 minúscula y 1 número.</div>
+      </div>
+
+      <button type="button" id="loginBtn" onclick="doAuth()" class="btn btn-primary" style="margin-top: 0.5rem;">Ingresar</button>
+
+      <div style="text-align: center; margin-top: 1rem;">
+        <span id="toggleRegister" onclick="toggleAuthMode()" style="color: var(--primary); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
+          ¿No tienes usuario? Crea uno nuevo
+        </span>
+      </div>
+    </div>
+
+    <!-- VISTA PRINCIPAL -->
+    <div id="viewApp" style="display: none;">
+      
+      <!-- PERFIL USUARIO (DESPLEGABLE) -->
+      <div class="card" style="background: #faf5ff; border-color: #d8b4fe;">
+        <div class="header-toggle">
+          <h2>🔑 Seguridad del Usuario</h2>
+          <button type="button" onclick="toggleSection('userSecurityBody', this)" class="btn btn-toggle">🔽 Mostrar</button>
+        </div>
+        
+        <div id="userSecurityBody" class="collapsible-body" style="display: none;">
+          <div style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+            Cambiar contraseña para: <b id="profileUsername"></b>
+          </div>
+          
+          <div class="form-group">
+            <input type="password" id="oldPass" placeholder="Contraseña Actual" />
+          </div>
+          <div class="form-group">
+            <input type="password" id="changePass" placeholder="Nueva Contraseña" oninput="checkStrength(this.value, 'changeMeterBar', 'changeMeterText', 'changeMeterBox')" />
+            <div id="changeMeterBox" class="meter-container">
+              <div class="meter-bar"><div id="changeMeterBar" class="meter-fill"></div></div>
+              <span id="changeMeterText" class="meter-text"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <input type="password" id="changePassConfirm" placeholder="Confirmar Nueva Contraseña" />
+          </div>
+          <button type="button" onclick="updatePassword()" class="btn btn-primary">Actualizar Mi Contraseña</button>
+        </div>
+      </div>
+
+      <!-- PANEL ADMIN (DESPLEGABLE) -->
+      <div id="adminSection" class="card" style="display: none; border-color: var(--primary);">
+        <div class="header-toggle">
+          <h2>⚙️ Gestión de Usuarios y Auditoría</h2>
+          <button type="button" onclick="toggleSection('adminSectionBody', this)" class="btn btn-toggle">🔽 Mostrar</button>
+        </div>
+
+        <div id="adminSectionBody" class="collapsible-body" style="display: none;">
+          <div id="requestsContainer"></div>
+
+          <!-- HISTORIAL DE EDICIONES Y EXPORTACIÓN -->
+          <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+              <h3 style="margin: 0; font-size: 0.9rem; color: var(--primary);">📋 Historial de Ediciones</h3>
+              <div style="display: flex; gap: 0.3rem;">
+                <button type="button" onclick="exportAuditLogs('json')" class="btn btn-secondary" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;">💾 Exportar JSON</button>
+                <button type="button" onclick="exportAuditLogs('csv')" class="btn btn-success" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;">📊 Exportar Excel</button>
+              </div>
+            </div>
+            <ul id="auditLogsList" class="log-list">
+              <li style="color:var(--text-muted); font-size:0.8rem;">No hay ediciones registradas.</li>
+            </ul>
+          </div>
+
+          <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;">
+            <h3 style="margin-top:0; font-size:0.9rem;">Crear Nuevo Usuario</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <input type="text" id="newUsername" placeholder="Nuevo usuario" />
+              <input type="password" id="newUserPass" placeholder="Contraseña segura" oninput="checkStrength(this.value, 'adminMeterBar', 'adminMeterText', 'adminMeterBox')" />
+              
+              <div id="adminMeterBox" class="meter-container">
+                <div class="meter-bar"><div id="adminMeterBar" class="meter-fill"></div></div>
+                <span id="adminMeterText" class="meter-text"></span>
+              </div>
+
+              <input type="password" id="newUserPassConfirm" placeholder="Confirmar contraseña" />
+              <div class="password-hint">Mínimo 8 caracteres, con mayúscula, minúscula y número.</div>
+              <button type="button" onclick="adminCreateUser()" class="btn btn-primary">+ Crear Usuario</button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Estado</th>
+                  <th>Editar</th>
+                  <th>Borrar</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- DISPOSICIÓN PRINCIPAL (FORMULARIO Y LISTA EN 2 COLUMNAS PARA PC) -->
+      <div class="app-layout">
+        
+        <!-- FORMULARIO OT (COLUMNA IZQUIERDA EN PC) -->
+        <div class="card">
+          <div class="header-bar">
+            <h1 id="formTitle">Registrar OT</h1>
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.4rem;">
+                Usuario: <b id="currentUserLabel"></b>
+              </span>
+              <button type="button" onclick="logout()" class="btn btn-logout">🔒 Salir</button>
+            </div>
+          </div>
+
+          <form id="otForm" onsubmit="saveOT(event)">
+            <div class="form-group">
+              <label>Número OT</label>
+              <input type="text" id="otNumber" placeholder="Ej: 100" />
+            </div>
+
+            <div class="form-group">
+              <label>Número de Bus</label>
+              <input type="text" id="busNumber" placeholder="Ej: 5001" />
+            </div>
+
+            <div class="form-group">
+              <label>Kilometraje</label>
+              <input type="text" id="kilometraje" placeholder="Ej: 150000" />
+            </div>
+
+            <div class="form-group">
+              <label>Detalle</label>
+              <textarea id="detalle" rows="3" placeholder="Ej: Mantenimiento de Puerta&#10;- Cambio de goma&#10;- Ajuste de sensor"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Campos Personalizados Extras</label>
+              <div id="dynamicContainer"></div>
+              <button type="button" onclick="addExtraField()" class="btn btn-secondary" style="margin-top: 0.4rem;">+ Agregar campo extra</button>
+            </div>
+
+            <button type="submit" id="saveBtn" class="btn btn-primary" style="margin-top: 1rem;">Guardar OT</button>
+            <button type="button" id="cancelBtn" onclick="resetForm()" class="btn btn-secondary" style="margin-top: 0.5rem; display: none;">Cancelar Edición</button>
+          </form>
+        </div>
+
+        <!-- LISTA Y FILTROS DE REGISTROS (COLUMNA DERECHA EN PC) -->
+        <div class="card">
+          <h2>Registros Guardados</h2>
+
+          <div class="export-zone" style="margin-top: 0.75rem;">
+            <button type="button" onclick="exportBackup()" class="btn btn-primary" style="width: auto;">💾 Respaldar OTs (JSON)</button>
+            
+            <label class="btn btn-secondary" style="cursor: pointer; text-align: center; width: auto; display: inline-block;">
+              📂 Cargar OTs
+              <input type="file" id="importFileInput" accept=".json" onchange="importBackup(event)" style="display: none;" />
+            </label>
+
+            <button type="button" onclick="exportToExcel()" class="btn btn-success" style="width: auto;">📊 Excel (CSV)</button>
+          </div>
+
+          <!-- BARRA DE BÚSQUEDA INTEGRADA Y ORDEN -->
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <input 
+              type="text" 
+              id="searchKeyword" 
+              oninput="renderOTs()" 
+              placeholder="🔍 Palabra clave (OT, detalle, técnico...)" 
+              style="flex: 2; min-width: 180px;" 
+            />
+            <input 
+              type="text" 
+              id="searchBus" 
+              oninput="renderOTs()" 
+              placeholder="🚌 Bus" 
+              style="flex: 1; min-width: 100px;" 
+            />
+            <button 
+              type="button" 
+              id="sortBtn" 
+              onclick="toggleSortOrder()" 
+              class="btn btn-secondary" 
+              style="width: auto; white-space: nowrap;"
+            >
+              ⬇️ Más recientes
+            </button>
+          </div>
+
+          <ul id="otList" class="object-list"></ul>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- FIREBASE SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <script src="js/app.js?v=2.0"></script>
+</body>
+</html>
