@@ -1,0 +1,267 @@
+/* ==========================================
+   VARIABLES DE DISEÑO Y TEMAS DE COLOR
+   ========================================== */
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #16a34a;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+/* ==========================================
+   ESTILOS GENERALES
+   ========================================== */
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 1.5rem;
+  line-height: 1.5;
+  display: flex;
+  justify-content: center;
+}
+
+/* Contenedor adaptativo: centrado en móviles y amplio en PC */
+.container { 
+  width: 100%; 
+  max-width: 1400px; 
+}
+
+/* ==========================================
+   DISPOSICIÓN EN REJILLA (LAYOUT PARA PC)
+   ========================================== */
+@media (min-width: 1024px) {
+  .app-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+}
+
+/* Tarjetas (Cards) */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Encabezados y barras */
+.header-bar, .header-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+h1 { font-size: 1.4rem; margin: 0; color: var(--text); }
+h2 { font-size: 1.15rem; margin: 0; color: var(--text); }
+
+/* ==========================================
+   FORMULARIO E INPUTS MEJORADOS
+   ========================================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+label { 
+  font-weight: 600; 
+  font-size: 0.85rem; 
+  color: var(--text);
+}
+
+input, textarea, select {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  background-color: #f8fafc;
+  color: var(--text);
+  transition: all 0.2s ease-in-out;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.password-hint { 
+  font-size: 0.75rem; 
+  color: var(--text-muted); 
+  margin-top: 0.2rem; 
+}
+
+/* Medidor de Fortaleza de Contraseña */
+.meter-container { margin-top: 0.3rem; display: none; }
+.meter-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 0.2rem; }
+.meter-fill { height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s; }
+.meter-text { font-size: 0.75rem; font-weight: 600; }
+
+/* ==========================================
+   BOTONES Y ACCIONES
+   ========================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: center;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-success { background: var(--success); color: white; }
+.btn-secondary { background: #e2e8f0; color: var(--text); }
+.btn-secondary:hover { background: #cbd5e1; }
+
+.btn-logout { background: #e2e8f0; color: var(--text); font-size: 0.8rem; padding: 0.35rem 0.7rem; width: auto; }
+.btn-danger { background: var(--danger); color: white; padding: 0.4rem 0.6rem; font-size: 0.8rem; width: auto; }
+.btn-warning { background: var(--warning); color: white; padding: 0.4rem 0.6rem; font-size: 0.8rem; width: auto; }
+.btn-toggle { background: #e2e8f0; color: var(--text); font-size: 0.8rem; padding: 0.35rem 0.7rem; width: auto; }
+
+.export-zone {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ==========================================
+   ALERTAS Y BADGES
+   ========================================== */
+.alert {
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  display: none;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.request-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ==========================================
+   LISTADO Y TARJETAS DE OTs EN PANTALLA PC
+   ========================================== */
+.dynamic-field { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+/* Distribución en MOSAICO/GRID para las OTs */
+.object-list { 
+  list-style: none; 
+  padding: 0; 
+  margin: 0; 
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem; 
+}
+
+.object-item { 
+  background: var(--card); 
+  border: 1px solid var(--border); 
+  padding: 1.1rem; 
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.object-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: #cbd5e1;
+}
+
+.object-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.object-title { font-weight: bold; color: var(--primary); font-size: 1.05rem; }
+.object-prop { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem; white-space: pre-line; }
+.object-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+
+/* ==========================================
+   TABLA DE USUARIOS Y AUDITORÍA
+   ========================================== */
+.user-table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  font-size: 0.825rem; 
+}
+
+.user-table th, .user-table td { 
+  border: 1px solid var(--border); 
+  padding: 0.5rem; 
+  text-align: left; 
+}
+
+.user-table th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+}
+
+.actions-cell { display: flex; gap: 0.3rem; }
+
+.log-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
+.log-item { background: #f1f5f9; border-left: 4px solid var(--primary); padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: 4px; margin-bottom: 0.5rem; }
+
+.collapsible-body { margin-top: 1rem; }
